@@ -10,8 +10,8 @@ export const fetchPokemonList = async (page:number) => {
     return response.data
 }
 
-export const fetchPokemonDetails = async (id: string) => {
-    const response = await api.get(`pokemon/${id}`)
+export const fetchPokemonByType = async (type: string) => {
+    const response = await api.get(`/type/${type}`)
     return response.data
 }
 

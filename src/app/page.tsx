@@ -1,6 +1,6 @@
 "use client";
 
-import { fetchPokemonList, fetchPokemonTypes, LIMT } from "@/utils/api";
+import { fetchPokemonByType, fetchPokemonList, fetchPokemonTypes, LIMT } from "@/utils/api";
 import { useProgressiveFetch } from "@/utils/batchApi";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ContentComponent, {
@@ -18,6 +18,7 @@ export default function Home() {
   });
   const [imgApis, updateImgApis] = useState([]);
   const pokeMonInfoMap = useRef(new Map());
+  const pokeTypesMap =  useRef(new Map())
 
   useEffect(() => {
     fetchPokemonTypes().then((data) => {
@@ -34,7 +35,6 @@ export default function Home() {
   }, [searchInfo.page]);
 
   const getPokemoInfo = useCallback(async () => {
-    if (selectedTypes.length == 0) {
       const data = await fetchPokemonList(searchInfo.page);
       console.log(data);
       const source = data?.results || [];
@@ -50,8 +50,7 @@ export default function Home() {
         ...searchInfo,
         total: data.count,
       });
-    }
-  }, [selectedTypes, searchInfo]);
+  }, [searchInfo]);
 
   const clickType = useCallback(
     (type: string) => {
@@ -79,6 +78,46 @@ export default function Home() {
     });
   }, [items]);
 
+  useEffect( () => {
+    if(selectedTypes.length == 0){
+      return;
+    }
+    (async ()=> {
+      await getSelectedType();
+      const data= [];
+      let total = 0;
+      for (let i = 0; i < selectedTypes.length; i++) {
+        const source = pokeTypesMap.current.get(selectedTypes[i])
+        if(data.length <= LIMT){
+          data.push(...source );
+        }
+        total +=source.length
+      }
+      const newData:any = data.splice(0 , LIMT);
+      updateImgApis(newData?.map(((item:any) => item.pokemon.url)));
+      updatePokemoInfo(
+        newData?.map((item:any) => ({
+          name:item.pokemon.name,
+          url: "",
+          id: item.pokemon.url.match(/pokemon\/(\d+)/)?.[1],
+        }))
+      );
+      updateSearch({
+        page:0,
+        total
+      })
+    })()
+  },[selectedTypes])
+
+  const getSelectedType = useCallback(async () => {
+    const alreadyTypes = [...pokeTypesMap.current.keys()]
+     const newTypes = selectedTypes.find(item => !alreadyTypes.includes(item) ) ;
+     if(newTypes){
+      const data = await fetchPokemonByType(newTypes);
+      pokeTypesMap.current.set(newTypes, data.pokemon);
+     }
+  } ,[selectedTypes])
+
   const showPokemonInfo = useMemo(() => {
     return pokemoInfo.map((item) => {
       if (pokeMonInfoMap.current.has(item.name)) {
@@ -97,7 +136,7 @@ export default function Home() {
   return (
     <div className="flex flex-col gap-4 px-10">
       <p className="text-center">Welcome to Pokemon world</p>
-      <p>Total count: {}</p>
+      <p>Total count: {searchInfo.total}</p>
       <TypeComponent
         types={types}
         selectedTypes={selectedTypes}

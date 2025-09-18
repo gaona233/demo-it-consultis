@@ -7,6 +7,7 @@ import ContentComponent, {
   PokemonInfo,
 } from "../../component/ContentComponent/index";
 import TypeComponent from "../../component/TypeComponent/index";
+import _ from 'lodash';
 
 export default function Home() {
   const [types, updateTypes] = useState<string[]>([]);
@@ -59,7 +60,7 @@ export default function Home() {
       if (index > -1) {
         newData.splice(index, 1);
       } else {
-        newData.push(type);
+        newData.unshift(type);
       }
       updateSelectedTypes(newData);
     },
@@ -84,37 +85,37 @@ export default function Home() {
     }
     (async ()=> {
       await getSelectedType();
-      const data= [];
-      let total = 0;
+      let keyObj = [];
       for (let i = 0; i < selectedTypes.length; i++) {
         const source = pokeTypesMap.current.get(selectedTypes[i])
-        if(data.length <= LIMT){
-          data.push(...source );
-        }
-        total +=source.length
+        keyObj.push(source)
       }
+      const data =  _.intersectionBy(...keyObj , 'name');
+      console.log('data',data)
       const newData:any = data.splice(0 , LIMT);
-      updateImgApis(newData?.map(((item:any) => item.pokemon.url)));
+      updateImgApis(newData?.map(((item:any) => item.url)));
       updatePokemoInfo(
         newData?.map((item:any) => ({
-          name:item.pokemon.name,
+          name:item.name,
           url: "",
-          id: item.pokemon.url.match(/pokemon\/(\d+)/)?.[1],
+          id: item.url.match(/pokemon\/(\d+)/)?.[1],
         }))
       );
       updateSearch({
         page:0,
-        total
+        total:data.length
       })
     })()
   },[selectedTypes])
 
   const getSelectedType = useCallback(async () => {
-    const alreadyTypes = [...pokeTypesMap.current.keys()]
+     const alreadyTypes = [...pokeTypesMap.current.keys()]
+     console.log('alreadyTypes',alreadyTypes);
      const newTypes = selectedTypes.find(item => !alreadyTypes.includes(item) ) ;
+     console.log('newTypes',newTypes)
      if(newTypes){
       const data = await fetchPokemonByType(newTypes);
-      pokeTypesMap.current.set(newTypes, data.pokemon);
+      pokeTypesMap.current.set(newTypes, data.pokemon.map((item:{pokemon:PokemonInfo}) => item.pokemon));
      }
   } ,[selectedTypes])
 

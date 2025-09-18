@@ -1,103 +1,139 @@
-import Image from "next/image";
+"use client";
+
+import { fetchPokemonList, fetchPokemonTypes, LIMT } from "@/utils/api";
+import { useProgressiveFetch } from "@/utils/batchApi";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ContentComponent, {
+  PokemonInfo,
+} from "../../component/ContentComponent/index";
+import TypeComponent from "../../component/TypeComponent/index";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [types, updateTypes] = useState<string[]>([]);
+  const [selectedTypes, updateSelectedTypes] = useState<string[]>([]);
+  const [pokemoInfo, updatePokemoInfo] = useState<PokemonInfo[]>([]);
+  const [searchInfo, updateSearch] = useState({
+    total: 0,
+    page: 0,
+  });
+  const [imgApis, updateImgApis] = useState([]);
+  const pokeMonInfoMap = useRef(new Map());
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    fetchPokemonTypes().then((data) => {
+      if (data?.results) {
+        updateTypes(
+          data.results?.map((item: { name: string; url: string }) => item.name)
+        );
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    getPokemoInfo();
+  }, [searchInfo.page]);
+
+  const getPokemoInfo = useCallback(async () => {
+    if (selectedTypes.length == 0) {
+      const data = await fetchPokemonList(searchInfo.page);
+      console.log(data);
+      const source = data?.results || [];
+      updateImgApis(source?.map((item: PokemonInfo) => item.url));
+      updatePokemoInfo(
+        source?.map((item: PokemonInfo) => ({
+          ...item,
+          url: "",
+          id: item.url.match(/pokemon\/(\d+)/)?.[1],
+        }))
+      );
+      updateSearch({
+        ...searchInfo,
+        total: data.count,
+      });
+    }
+  }, [selectedTypes, searchInfo]);
+
+  const clickType = useCallback(
+    (type: string) => {
+      let newData = [...selectedTypes];
+      const index = newData.indexOf(type);
+      if (index > -1) {
+        newData.splice(index, 1);
+      } else {
+        newData.push(type);
+      }
+      updateSelectedTypes(newData);
+    },
+    [types, selectedTypes]
+  );
+
+  const { items } = useProgressiveFetch(imgApis, { concurrentLimit: 5 });
+
+  useEffect(() => {
+    items.forEach((res: any) => {
+      pokeMonInfoMap.current.set(res.name, {
+        name: res.name,
+        url: res?.sprites.other?.showdown?.front_default,
+        id: res?.id,
+      });
+    });
+  }, [items]);
+
+  const showPokemonInfo = useMemo(() => {
+    return pokemoInfo.map((item) => {
+      if (pokeMonInfoMap.current.has(item.name)) {
+        return { ...pokeMonInfoMap.current.get(item.name) };
+      }
+      return {
+        ...item,
+      };
+    });
+  }, [pokeMonInfoMap.current.size, pokemoInfo]);
+
+  const isShowNext = useMemo(() => {
+    return searchInfo.total / LIMT > searchInfo.page
+  } ,[searchInfo.page ,searchInfo.total])
+
+  return (
+    <div className="flex flex-col gap-4 px-10">
+      <p className="text-center">Welcome to Pokemon world</p>
+      <p>Total count: {}</p>
+      <TypeComponent
+        types={types}
+        selectedTypes={selectedTypes}
+        clickType={clickType}
+      />
+      <section className="flex flex-col justify-center">
+        <ContentComponent pokemons={showPokemonInfo} />
+        <div className="flex justify-center gap-4 py-4">
+          {searchInfo.page !== 0 && (
+            <button
+              className="rounded bg-blue-500 px-4 py-2 text-white"
+              onClick={() => {
+                updateSearch({
+                  ...searchInfo,
+                  page: searchInfo.page - 1,
+                });
+              }}
+            >
+              Previous
+            </button>
+          )}
+          { isShowNext && (
+            <button
+              className="rounded bg-blue-500 px-4 py-2 text-white"
+              onClick={() => {
+                updateSearch({
+                  ...searchInfo,
+                  page: searchInfo.page + 1,
+                });
+              }}
+            >
+              Next
+            </button>
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </section>
     </div>
   );
 }

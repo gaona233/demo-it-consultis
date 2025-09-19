@@ -1,11 +1,12 @@
 {
   "name": "my-app",
   "version": "0.1.0",
-  "private": true,
+  "homepage": "https://gaona233.github.io/demo-it-consultis",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "build": "next build ",
+    "start": "next start",
+    "ghbuild": "next build && next export"
   },
   "dependencies": {
     "axios": "^1.12.2",

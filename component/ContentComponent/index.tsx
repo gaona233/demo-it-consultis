@@ -1,4 +1,3 @@
-import Image from "next/Image";
 export interface PokemonInfo{
   name: string;
   url: string;

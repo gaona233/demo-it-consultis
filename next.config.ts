@@ -2,10 +2,12 @@ import type { NextConfig } from "next";
 
 // next.config.js
 const isProd = process.env.NODE_ENV === 'production'
+const repoName = 'demo-it-consultis' 
 const nextConfig: NextConfig = {
   /* config options here */
 output: "export",
-  assetPrefix: isProd ? '/demo-it-consultis/' : '', // 替换为你的仓库名,
+  assetPrefix: isProd ? `/${repoName}` : '', 
+  basePath: isProd ? `/${repoName}` : '', // 确保路径正确
   images: {
     remotePatterns: [
       {
